@@ -1,0 +1,1352 @@
+openapi: 3.0.0
+info:
+  title: SPADE Collaboration Catalogue API
+  version: 1.0.0
+  description: |-
+    API documentation for SPADE Collaboration Catalogue - a comprehensive system for managing organizations, nodes, partnerships, and users in the SPADE ecosystem.
+
+    ## Overview
+
+    This API provides two main interfaces:
+    - **UI API** (`/api/ui/v1/`): User-facing endpoints for web applications
+    - **Broker API** (`/api/broker/v1/`): Machine-to-machine communication for data brokers
+
+    ## Authentication
+
+    All endpoints require JWT Bearer authentication.
+  contact:
+    name: bAvenir
+    url: https://bavenir.eu
+    email: info@bavenir.eu
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+servers:
+  - url: http://localhost:3000
+    description: Local server
+tags:
+  - name: Users
+    description: User management endpoints
+  - name: Organisations
+    description: Organisation management endpoints
+  - name: Nodes
+    description: Node management endpoints
+  - name: Partnerships
+    description: Partnership management endpoints
+  - name: Notifications
+    description: Notification endpoints
+  - name: Geolocation
+    description: Geolocation services
+  - name: Broker
+    description: Data broker endpoints
+security:
+  - bearerAuth: []
+paths:
+  /api/ui/v1/users/all:
+    get:
+      tags:
+        - Users
+      summary: Get all users
+      description: Retrieve a list of all users in the system
+      responses:
+        '200':
+          description: List of users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                    example: false
+                  message:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+  /api/ui/v1/users/my:
+    get:
+      tags:
+        - Users
+      summary: Get current user
+      description: Retrieve the current authenticated user's profile
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+    put:
+      tags:
+        - Users
+      summary: Update current user
+      description: Update the current authenticated user's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+  /api/ui/v1/users/my/audit-trails:
+    get:
+      tags:
+        - Users
+      summary: Get user audit trails
+      description: Retrieve audit trails for the current user
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Page number for pagination
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - SUCCESS
+              - ERROR
+          description: Filter by status
+      responses:
+        '200':
+          description: Audit trails retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditTrail'
+  /api/ui/v1/users/{uid}:
+    get:
+      tags:
+        - Users
+      summary: Get user by ID
+      description: Retrieve a specific user by their UID
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User unique identifier
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+    put:
+      tags:
+        - Users
+      summary: Update user (Admin only)
+      description: Update a specific user's profile. Requires ADMIN role.
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+  /api/ui/v1/organisations/all:
+    get:
+      tags:
+        - Organisations
+      summary: Get all organisations
+      description: Retrieve a list of all organisations
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Organisations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Organisation'
+  /api/ui/v1/organisations/foreign:
+    get:
+      tags:
+        - Organisations
+      summary: Get foreign organisations
+      description: Retrieve organisations other than the current user's organisation
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Foreign organisations retrieved successfully
+  /api/ui/v1/organisations/foreign/{cid}:
+    get:
+      tags:
+        - Organisations
+      summary: Get foreign organisation by ID
+      parameters:
+        - name: cid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Organisation retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    $ref: '#/components/schemas/Organisation'
+  /api/ui/v1/organisations/my:
+    get:
+      tags:
+        - Organisations
+      summary: Get my organisation
+      description: Retrieve the current user's organisation
+      responses:
+        '200':
+          description: Organisation retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    $ref: '#/components/schemas/Organisation'
+    post:
+      tags:
+        - Organisations
+      summary: Create organisation
+      description: Create a new organisation for the current user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganisationCreate'
+      responses:
+        '201':
+          description: Organisation created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    $ref: '#/components/schemas/Organisation'
+    put:
+      tags:
+        - Organisations
+      summary: Update my organisation
+      description: Update the current user's organisation (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganisationUpdate'
+      responses:
+        '200':
+          description: Organisation updated successfully
+  /api/ui/v1/organisations/my/users:
+    get:
+      tags:
+        - Organisations
+      summary: Get organisation users
+      description: Retrieve all users in the current user's organisation
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+  /api/ui/v1/organisations/my/audit-trails:
+    get:
+      tags:
+        - Organisations
+      summary: Get organisation audit trails
+      description: Retrieve audit trails for the organisation (Admin only)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - SUCCESS
+              - ERROR
+      responses:
+        '200':
+          description: Audit trails retrieved successfully
+  /api/ui/v1/organisations/my/users/{uid}:
+    delete:
+      tags:
+        - Organisations
+      summary: Remove user from organisation
+      description: Remove a user from the current organisation (Admin only)
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: User removed successfully
+  /api/ui/v1/organisations/my/partners:
+    get:
+      tags:
+        - Organisations
+      summary: Get organisation partners
+      description: Retrieve all partner organisations
+      responses:
+        '200':
+          description: Partners retrieved successfully
+  /api/ui/v1/organisations/my/invitations:
+    get:
+      tags:
+        - Organisations
+      summary: Get organisation invitations
+      description: Retrieve all invitations sent by the organisation
+      responses:
+        '200':
+          description: Invitations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Invitation'
+    post:
+      tags:
+        - Organisations
+      summary: Send invitations
+      description: Send invitations to users to join the organisation (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationCreate'
+      responses:
+        '200':
+          description: Invitations sent successfully
+  /api/ui/v1/organisations/my/invitations/{code}:
+    put:
+      tags:
+        - Organisations
+      summary: Renew invitation
+      description: Renew an expired invitation (Admin only)
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Invitation renewed successfully
+    delete:
+      tags:
+        - Organisations
+      summary: Cancel invitation
+      description: Cancel a pending invitation (Admin only)
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Invitation cancelled successfully
+  /api/ui/v1/organisations/invitations/{code}:
+    get:
+      tags:
+        - Organisations
+      summary: Get invitation info
+      description: Retrieve information about an invitation
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Invitation info retrieved successfully
+  /api/ui/v1/organisations/invitations/{code}/join:
+    post:
+      tags:
+        - Organisations
+      summary: Join organisation via invitation
+      description: Accept an invitation and join the organisation
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully joined organisation
+  /api/ui/v1/nodes/all:
+    get:
+      tags:
+        - Nodes
+      summary: Get all nodes
+      description: Retrieve all nodes visible to the user
+      responses:
+        '200':
+          description: Nodes retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Node'
+  /api/ui/v1/nodes/my:
+    get:
+      tags:
+        - Nodes
+      summary: Get organisation nodes
+      description: Retrieve all nodes belonging to the user's organisation
+      responses:
+        '200':
+          description: Nodes retrieved successfully
+    post:
+      tags:
+        - Nodes
+      summary: Create node
+      description: Create a new node for the organisation (Admin or Node Operator)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeCreate'
+      responses:
+        '201':
+          description: Node created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    $ref: '#/components/schemas/Node'
+  /api/ui/v1/nodes/my/partners:
+    get:
+      tags:
+        - Nodes
+      summary: Get partner nodes
+      description: Retrieve nodes of all partner organisations
+      responses:
+        '200':
+          description: Partner nodes retrieved successfully
+  /api/ui/v1/nodes/my/{nodeId}:
+    get:
+      tags:
+        - Nodes
+      summary: Get node by ID
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Node retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    $ref: '#/components/schemas/Node'
+    put:
+      tags:
+        - Nodes
+      summary: Update node
+      description: Update node information (Admin or Node Operator)
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeUpdate'
+      responses:
+        '200':
+          description: Node updated successfully
+    delete:
+      tags:
+        - Nodes
+      summary: Delete node
+      description: Delete a node (Admin or Node Operator)
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Node deleted successfully
+  /api/ui/v1/nodes/my/{nodeId}/build-info:
+    put:
+      tags:
+        - Nodes
+      summary: Update node build information
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeBuildInfo'
+      responses:
+        '200':
+          description: Build info updated successfully
+  /api/ui/v1/nodes/my/sign-cert:
+    post:
+      tags:
+        - Nodes
+      summary: Sign node certificate
+      description: Sign a Certificate Signing Request (CSR) for a node
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignCert'
+      responses:
+        '200':
+          description: Certificate signed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    $ref: '#/components/schemas/Certificate'
+  /api/ui/v1/nodes/check-dns:
+    post:
+      tags:
+        - Nodes
+      summary: Check node DNS
+      description: Verify DNS configuration for a node
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                host:
+                  type: string
+                  description: Node host URL
+      responses:
+        '200':
+          description: DNS check completed
+  /api/ui/v1/nodes/latest-version:
+    get:
+      tags:
+        - Nodes
+      summary: Get latest node version
+      description: Retrieve the latest available node software version
+      responses:
+        '200':
+          description: Latest version retrieved successfully
+  /api/ui/v1/nodes/{nodeId}:
+    get:
+      tags:
+        - Nodes
+      summary: Get node by ID
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Node retrieved successfully
+  /api/ui/v1/partnerships/my:
+    get:
+      tags:
+        - Partnerships
+      summary: Get organisation partnerships
+      description: Retrieve all partnerships for the user's organisation
+      responses:
+        '200':
+          description: Partnerships retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Partnership'
+    post:
+      tags:
+        - Partnerships
+      summary: Create partnership
+      description: Request a new partnership with another organisation (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartnershipCreate'
+      responses:
+        '200':
+          description: Partnership request created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    $ref: '#/components/schemas/Partnership'
+  /api/ui/v1/partnerships/{partId}:
+    delete:
+      tags:
+        - Partnerships
+      summary: Cancel partnership
+      description: Cancel an existing partnership (Admin only)
+      parameters:
+        - name: partId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Partnership cancelled successfully
+    put:
+      tags:
+        - Partnerships
+      summary: Accept partnership
+      description: Accept a pending partnership request (Admin only)
+      parameters:
+        - name: partId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Partnership accepted successfully
+  /api/ui/v1/notifications/my:
+    get:
+      tags:
+        - Notifications
+      summary: Get organisation notifications
+      description: Retrieve all notifications for the user's organisation
+      responses:
+        '200':
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+  /api/ui/v1/geolocation/autocomplete:
+    get:
+      tags:
+        - Geolocation
+      summary: Autocomplete location search
+      description: Search for locations using autocomplete
+      parameters:
+        - name: text
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search text
+      responses:
+        '200':
+          description: Location results retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    $ref: '#/components/schemas/GeolocationResult'
+  /api/broker/v1/handshake:
+    put:
+      tags:
+        - Broker
+      summary: Node handshake
+      description: Perform handshake to register or update a node
+      security:
+        - nodeBearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeBuildInfo'
+      responses:
+        '200':
+          description: Handshake successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                  message:
+                    $ref: '#/components/schemas/Handshake'
+  /api/broker/v1/notification:
+    put:
+      tags:
+        - Broker
+      summary: Send notification
+      description: Send a notification from a node
+      security:
+        - nodeBearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Notification message
+                type:
+                  type: string
+                  description: Notification type
+      responses:
+        '200':
+          description: Notification sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: notification
+  /api/broker/v1/users/organisation/current:
+    get:
+      tags:
+        - Broker
+      summary: Get organisation users (Broker)
+      description: Retrieve all users in the node's organisation
+      security:
+        - nodeBearerAuth: []
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                    example: false
+                  message:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        uid:
+                          type: string
+                        email:
+                          type: string
+                        name:
+                          type: string
+                        roles:
+                          type: array
+                          items:
+                            type: string
+  /api/broker/v1/organisations/partners:
+    get:
+      tags:
+        - Broker
+      summary: Get partner organisations (Broker)
+      description: Retrieve all partner organisations for the node's organisation
+      security:
+        - nodeBearerAuth: []
+      responses:
+        '200':
+          description: Partners retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                    example: false
+                  message:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        cid:
+                          type: string
+                          description: Organisation CID
+                        name:
+                          type: string
+                          description: Organisation name
+                        businessId:
+                          type: string
+                        location:
+                          type: string
+  /api/broker/v1/nodes/my:
+    get:
+      tags:
+        - Broker
+      summary: Get organisation nodes (Broker)
+      description: Retrieve all nodes of partner organisations
+      security:
+        - nodeBearerAuth: []
+      responses:
+        '200':
+          description: Nodes retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: boolean
+                    example: false
+                  message:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          description: Node ID
+                        name:
+                          type: string
+                          description: Node name
+                        host:
+                          type: string
+                          description: Node host URL
+                        status:
+                          type: string
+                          enum:
+                            - PENDING
+                            - APPROVED
+                            - REJECTED
+                        owner:
+                          type: object
+                          properties:
+                            cid:
+                              type: string
+                            name:
+                              type: string
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from authentication service for UI API
+    nodeBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for node authentication in Broker API
+  schemas:
+    User:
+      type: object
+      properties:
+        uid:
+          type: string
+          description: User unique identifier
+        email:
+          type: string
+          format: email
+          description: User email address
+        name:
+          type: string
+          description: User full name
+        firstName:
+          type: string
+          description: User first name
+        lastName:
+          type: string
+          description: User last name
+        occupation:
+          type: string
+          description: User occupation
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+              - ADMIN
+              - VIEWER
+              - NODE_OPERATOR
+          description: User roles
+        created:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        organisation:
+          $ref: '#/components/schemas/Organisation'
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          description: User full name
+        firstName:
+          type: string
+          description: User first name
+        lastName:
+          type: string
+          description: User last name
+        occupation:
+          type: string
+          description: User occupation
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+              - ADMIN
+              - VIEWER
+              - NODE_OPERATOR
+    UserResponse:
+      type: object
+      properties:
+        error:
+          type: boolean
+          example: false
+        message:
+          $ref: '#/components/schemas/User'
+    Organisation:
+      type: object
+      properties:
+        cid:
+          type: string
+          description: Organisation unique identifier
+        name:
+          type: string
+          description: Organisation name
+        businessId:
+          type: string
+          description: Business registration number
+        location:
+          type: string
+          description: Organisation location
+        notes:
+          type: string
+          description: Additional notes
+        created:
+          type: string
+          format: date-time
+          description: Creation timestamp
+    OrganisationCreate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Organisation name
+        businessId:
+          type: string
+          description: Business registration number
+        location:
+          type: string
+          description: Organisation location
+        notes:
+          type: string
+          description: Additional notes
+    OrganisationUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Organisation name
+        businessId:
+          type: string
+          description: Business registration number
+        location:
+          type: string
+          description: Organisation location
+        notes:
+          type: string
+          description: Additional notes
+    Node:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Node unique identifier
+        name:
+          type: string
+          description: Node name
+        host:
+          type: string
+          description: Node host URL
+        status:
+          type: string
+          enum:
+            - PENDING
+            - APPROVED
+            - REJECTED
+          description: Node status
+        version:
+          type: string
+          description: Node software version
+        created:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        owner:
+          $ref: '#/components/schemas/Organisation'
+    NodeCreate:
+      type: object
+      required:
+        - name
+        - host
+      properties:
+        name:
+          type: string
+          description: Node name
+          example: My Data Broker
+        host:
+          type: string
+          description: Node host URL
+          example: https://broker.example.com
+    NodeUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Node name
+        status:
+          type: string
+          enum:
+            - PENDING
+            - APPROVED
+            - REJECTED
+          description: Node status
+    NodeBuildInfo:
+      type: object
+      properties:
+        version:
+          type: string
+          description: Node software version
+        buildNumber:
+          type: string
+          description: Build number
+        commitHash:
+          type: string
+          description: Git commit hash
+    Partnership:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Partnership unique identifier
+        status:
+          type: string
+          enum:
+            - PENDING
+            - ACCEPTED
+            - REJECTED
+          description: Partnership status
+        from:
+          $ref: '#/components/schemas/Organisation'
+        to:
+          $ref: '#/components/schemas/Organisation'
+        created:
+          type: string
+          format: date-time
+          description: Creation timestamp
+    PartnershipCreate:
+      type: object
+      required:
+        - to
+      properties:
+        to:
+          type: string
+          description: Target organisation CID
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Notification unique identifier
+        message:
+          type: string
+          description: Notification message
+        type:
+          type: string
+          description: Notification type
+        read:
+          type: boolean
+          description: Whether notification has been read
+        created:
+          type: string
+          format: date-time
+          description: Creation timestamp
+    Invitation:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Invitation code
+        email:
+          type: string
+          format: email
+          description: Invited user email
+        status:
+          type: string
+          enum:
+            - PENDING
+            - ACCEPTED
+            - EXPIRED
+          description: Invitation status
+        roles:
+          type: array
+          items:
+            type: string
+        created:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        organisation:
+          $ref: '#/components/schemas/Organisation'
+    InvitationCreate:
+      type: object
+      required:
+        - emailList
+      properties:
+        emailList:
+          type: array
+          items:
+            type: string
+            format: email
+          description: List of email addresses to invite
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+              - ADMIN
+              - VIEWER
+              - NODE_OPERATOR
+    AuditTrail:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Audit trail unique identifier
+        purpose:
+          type: string
+          description: Purpose of the action
+        origin:
+          type: string
+          description: Origin organisation CID
+        requester:
+          type: string
+          description: Requester user UID
+        target:
+          type: string
+          description: Target entity identifier
+        status:
+          type: string
+          enum:
+            - SUCCESS
+            - ERROR
+          description: Action status
+        statusreason:
+          type: string
+          description: Status reason or message
+        info:
+          type: string
+          description: Additional information
+        timestamp:
+          type: string
+          format: date-time
+          description: Action timestamp
+    GeolocationResult:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Result type
+          example: FeatureCollection
+        features:
+          type: array
+          items:
+            type: object
+            properties:
+              properties:
+                type: object
+                description: Location properties
+              geometry:
+                type: object
+                properties:
+                  coordinates:
+                    type: array
+                    items:
+                      type: number
+    SignCert:
+      type: object
+      required:
+        - csr
+      properties:
+        csr:
+          type: string
+          description: Certificate Signing Request (CSR) in PEM format
+    Certificate:
+      type: object
+      properties:
+        certificate:
+          type: string
+          description: Signed certificate in PEM format
+        ca:
+          type: string
+          description: Certificate Authority certificate
+    Handshake:
+      type: object
+      properties:
+        authority:
+          type: string
+          description: Authority URL
+        certificate:
+          type: string
+          description: Certificate in PEM format
+        ts:
+          type: string
+          format: date-time
+          description: Timestamp
+    Error:
+      type: object
+      properties:
+        error:
+          type: boolean
+          example: true
+        message:
+          type: string
+          description: Error message
+        status:
+          type: number
+          description: HTTP status code
+        source:
+          type: string
+          description: Error source

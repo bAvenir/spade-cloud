@@ -1,0 +1,254 @@
+version: '3.8'
+
+services:
+  # ===========================================
+  # DATA BROKER UI - Production
+  # ===========================================
+  data-broker_ui:
+    image: ${DATABROKER_UI_IMAGE}
+    restart: always
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.db-ui1.loadbalancer.server.port=4200
+      - traefik.http.routers.db-ui1.entrypoints=websecure,web
+      - traefik.http.routers.db-ui1.rule=Host(`${DATABROKER_DOMAIN}`)
+      - traefik.http.routers.db-ui1.tls.certresolver=myresolver
+    networks:
+      - spade_network
+
+  # ===========================================
+  # ENTRYPOINT - Main gateway
+  # ===========================================
+  entrypoint:
+    image: ${ENTRYPOINT_IMAGE}
+    restart: always
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.entrypoint.loadbalancer.server.port=3000
+      - traefik.http.routers.entrypoint.entrypoints=websecure,web
+      - traefik.http.routers.entrypoint.rule=Host(`${ENTRYPOINT_DOMAIN}`)
+      - traefik.http.routers.entrypoint.tls.certresolver=myresolver
+    networks:
+      - spade_network
+
+  # ===========================================
+  # CATALOGUE DATABASE - PostgreSQL
+  # ===========================================
+  catalogue_db:
+    image: postgres:17
+    restart: always
+    tty: true
+    environment:
+      POSTGRES_USER: ${CATALOGUE_DB_USER}
+      POSTGRES_PASSWORD: ${CATALOGUE_DB_PASSWORD}
+      POSTGRES_DB: ${CATALOGUE_DB_NAME}
+    volumes:
+      - catalogue_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CATALOGUE_DB_USER} -d ${CATALOGUE_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - traefik.enable=false
+    networks:
+      - spade_network
+
+  # ===========================================
+  # CATALOGUE SERVICE
+  # ===========================================
+  catalogue:
+    image: ${CATALOGUE_IMAGE}
+    depends_on:
+      catalogue_db:
+        condition: service_healthy
+    restart: always
+    environment:
+      DB_HOST: catalogue_db
+      DB_PORT: 5432
+      DB_NAME: ${CATALOGUE_DB_NAME}
+      DB_USER: ${CATALOGUE_DB_USER}
+      DB_PASSWORD: ${CATALOGUE_DB_PASSWORD}
+    env_file:
+      - .env
+    labels:
+      - traefik.enable=true
+      - traefik.port=80
+      - traefik.http.services.cc.loadbalancer.server.port=4000
+      - traefik.http.routers.cc.service=cc
+      - traefik.http.routers.cc.rule=Host(`${CATALOGUE_DOMAIN}`)
+      - traefik.http.routers.cc.entrypoints=websecure,web
+      - traefik.http.routers.cc.tls.certresolver=myresolver
+    networks:
+      - spade_network
+
+  # ===========================================
+  # KEYCLOAK DATABASE - PostgreSQL
+  # ===========================================
+  keycloak_db:
+    image: postgres:15.5-alpine
+    container_name: keycloak_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${KEYCLOAK_DB_NAME}
+      POSTGRES_USER: ${KEYCLOAK_DB_USER}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_DB_USER} -d ${KEYCLOAK_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - traefik.enable=false
+    networks:
+      - spade_network
+
+  # ===========================================
+  # KEYCLOAK - Identity and Access Management
+  # ===========================================
+  keycloak:
+    container_name: keycloak
+    image: docker.io/bitnami/keycloak:22
+    restart: unless-stopped
+    depends_on:
+      keycloak_db:
+        condition: service_healthy
+    # Uncomment to use custom themes:
+    # volumes:
+    #   - ${KEYCLOAK_THEMES_PATH}:/opt/bitnami/keycloak/themes/bavenir
+    environment:
+      KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN_USER}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KEYCLOAK_DATABASE_VENDOR: postgresql
+      KEYCLOAK_DATABASE_HOST: keycloak_db
+      KEYCLOAK_DATABASE_NAME: ${KEYCLOAK_DB_NAME}
+      KEYCLOAK_DATABASE_PORT: 5432
+      KEYCLOAK_DATABASE_USER: ${KEYCLOAK_DB_USER}
+      KEYCLOAK_DATABASE_SCHEMA: public
+      KEYCLOAK_DATABASE_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KEYCLOAK_PRODUCTION: true
+      KEYCLOAK_BIND_ADDRESS: 0.0.0.0
+      KEYCLOAK_PROXY: edge
+      KEYCLOAK_LOGLEVEL: INFO
+      KEYCLOAK_ENABLE_STATISTICS: true
+      KEYCLOAK_ENABLE_HEALTH_ENDPOINTS: true
+    labels:
+      - traefik.enable=true
+      - traefik.port=80
+      - traefik.http.services.keycloak.loadbalancer.server.port=8080
+      - traefik.http.routers.keycloak.rule=Host(`${KEYCLOAK_DOMAIN}`)
+      - traefik.http.routers.keycloak.entrypoints=websecure
+      - traefik.http.routers.keycloak.tls=true
+      - traefik.http.routers.keycloak.tls.certresolver=myresolver
+    networks:
+      - spade_network
+
+  # ===========================================
+  # EJBCA DATABASE - MariaDB
+  # ===========================================
+  ejbca_db:
+    image: library/mariadb
+    restart: always
+    command: --character-set-server=utf8 --collation-server=utf8_bin
+    environment:
+      MYSQL_ROOT_PASSWORD: ${EJBCA_DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${EJBCA_DB_NAME}
+      MYSQL_USER: ${EJBCA_DB_USER}
+      MYSQL_PASSWORD: ${EJBCA_DB_PASSWORD}
+    volumes:
+      - ejbca_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - traefik.enable=false
+    networks:
+      - spade_network
+
+  # ===========================================
+  # EJBCA - PKI Certificate Authority
+  # ===========================================
+  ejbca:
+    container_name: ejbca
+    image: keyfactor/ejbca-ce:9.1.1
+    restart: always
+    hostname: ${EJBCA_HOSTNAME}
+    depends_on:
+      ejbca_db:
+        condition: service_healthy
+    environment:
+      DATABASE_JDBC_URL: jdbc:mysql://ejbca_db:3306/${EJBCA_DB_NAME}?characterEncoding=UTF-8
+      DATABASE_USER: ${EJBCA_DB_USER}
+      DATABASE_PASSWORD: ${EJBCA_DB_PASSWORD}
+      PROXY_AJP_BIND: 0.0.0.0
+    labels:
+      - traefik.enable=false
+    networks:
+      - spade_network
+
+  # ===========================================
+  # EJBCA PROXY - Apache HTTP Server
+  # ===========================================
+  # NOTE: Requires httpd.conf and SSL certificates before starting
+  # Comment out this service if not using EJBCA proxy
+  ejbca_proxy:
+    image: library/httpd:2.4
+    hostname: ${EJBCA_PROXY_HOSTNAME}
+    restart: always
+    depends_on:
+      - ejbca
+    ports:
+      - "${EJBCA_HTTP_PORT}:80"
+      - "${EJBCA_HTTPS_PORT}:443"
+    volumes:
+      - ${EJBCA_HTTPD_CONF}:/usr/local/apache2/conf/httpd.conf
+      - ${EJBCA_PEM_PATH}:/etc/httpd/ssl
+    labels:
+      - traefik.enable=false
+    networks:
+      - spade_network
+
+  # ===========================================
+  # PKI SERVICE - SPADE PKI Management
+  # ===========================================
+  # NOTE: Requires config.json in PKI_DATA_PATH before starting
+  pki:
+    image: ${PKI_IMAGE}
+    restart: always
+    depends_on:
+      - ejbca
+    volumes:
+      - ${PKI_DATA_PATH}:/data:rw
+    environment:
+      CONFIG_FILE: /data/config.json
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.pki.loadbalancer.server.port=8080
+      - traefik.http.routers.pki.rule=Host(`${PKI_DOMAIN}`)
+      - traefik.http.routers.pki.entrypoints=websecure,web
+      - traefik.http.routers.pki.tls.certresolver=myresolver
+    networks:
+      - spade_network
+
+# ===========================================
+# VOLUMES
+# ===========================================
+volumes:
+  catalogue_db_data:
+    driver: local
+  keycloak_db_data:
+    driver: local
+  ejbca_db_data:
+    driver: local
+
+# ===========================================
+# NETWORKS
+# ===========================================
+networks:
+  spade_network:
+    driver: bridge
+

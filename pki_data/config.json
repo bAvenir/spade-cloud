@@ -1,0 +1,16 @@
+{
+  "apiPort": 8080,
+  "ejbcaHost": "proxy",
+  "ejbcaPort": 443,
+  "ejbcaSsl": true,
+  "ccHost": "catalogue.example.com",
+  "issuerDN": "CN=YourSubCA,O=YourOrganization,C=XX",
+  "certificateProfileName": "YOUR-SERVER-PROFILE",
+  "endEntityProfileName": "YourEndEntityProfile",
+  "certificateAuthorityName": "YourSubCA",
+  "apiSecret": "your-base64-encoded-api-secret-here",
+  "keystorePath": "/data/superadmin.p12",
+  "keystorePassword": "change-this-password",
+  "truststorePath": "/data/truststore.p12",
+  "truststorePassword": "change-this-password"
+}

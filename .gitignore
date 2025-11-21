@@ -1,0 +1,29 @@
+# Environment variables - NEVER commit this file!
+.env
+
+# Docker volumes data
+volumes/
+
+# EJBCA configuration (may contain sensitive data)
+ejbca/pem/*.pem
+ejbca/pem/*.key
+ejbca/httpd.conf
+
+# PKI data (may contain sensitive data)
+pki/data/config.json
+pki/data/*.p12
+pki/data/*.pem
+pki/data/*.key
+
+# Keycloak themes (if customized locally)
+themes/
+
+# Docker compose overrides
+docker-compose.override.yml
+
+# Logs
+*.log
+
+# Backup files
+*.sql
+*.dump

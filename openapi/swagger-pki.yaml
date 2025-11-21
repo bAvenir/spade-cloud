@@ -1,0 +1,381 @@
+openapi: 3.0.3
+info:
+  title: SPADE PKI API
+  description: |
+    SPADE PKI (Public Key Infrastructure) API for certificate management.
+    This API provides endpoints for certificate signing, retrieval, revocation, and CRL management.
+  version: 1.0.0
+  contact:
+    name: bAvenir
+    url: https://bavenir.eu
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://pki.spade.bavenir.eu
+    description: Production server
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /api/v1/certs:
+    post:
+      summary: Sign a certificate
+      description: |
+        Submit a Certificate Signing Request (CSR) to get it signed by the CA.
+        Requires API secret authentication.
+      operationId: signCertificate
+      tags:
+        - Certificates
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CertificateSigningRequest'
+            example:
+              csr: |
+                -----BEGIN CERTIFICATE REQUEST-----
+                MIICvDCCAaQCAQAwdzELMAkGA1UEBhMCU0sxEDAOBgNVBAoMB2JBdmVuaXIxETAP
+                ...
+                -----END CERTIFICATE REQUEST-----
+              info:
+                nodeId: "node-123"
+                orgId: "org-456"
+                role: "server"
+      responses:
+        '200':
+          description: Certificate successfully signed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedCertificateResponse'
+        '400':
+          description: Bad request - CSR or user info missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid or missing API secret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error - EJBCA error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/certs/root:
+    get:
+      summary: Get root CA certificate
+      description: Retrieve the root CA certificate in PEM format
+      operationId: getRootCertificate
+      tags:
+        - Certificates
+      security: []
+      responses:
+        '200':
+          description: Root CA certificate
+          content:
+            application/x-x509-ca-cert:
+              schema:
+                type: string
+                format: binary
+                example: |
+                  -----BEGIN CERTIFICATE-----
+                  MIIDXTCCAkWgAwIBAgIJAKx...
+                  -----END CERTIFICATE-----
+
+  /api/v1/certs/{id}:
+    get:
+      summary: Get certificate by ID
+      description: Retrieve a certificate by its ID, DN, or UUID
+      operationId: getCertificateById
+      tags:
+        - Certificates
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Certificate ID, DN, or UUID
+          schema:
+            type: string
+          example: "1234567890"
+      responses:
+        '200':
+          description: Certificate found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CertificateSearchResponse'
+        '400':
+          description: Bad request - No ID provided
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/certs/{id}/revoke:
+    get:
+      summary: Revoke a certificate
+      description: |
+        Revoke a certificate by its ID with an optional reason.
+        Requires API secret authentication.
+      operationId: revokeCertificate
+      tags:
+        - Certificates
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Certificate ID to revoke
+          schema:
+            type: string
+          example: "1234567890"
+        - name: reason
+          in: query
+          required: false
+          description: Revocation reason
+          schema:
+            type: string
+            enum:
+              - UNSPECIFIED
+              - KEY_COMPROMISE
+              - CA_COMPROMISE
+              - AFFILIATION_CHANGED
+              - SUPERSEDED
+              - CESSATION_OF_OPERATION
+              - CERTIFICATE_HOLD
+              - REMOVE_FROM_CRL
+              - PRIVILEGE_WITHDRAWN
+              - AA_COMPROMISE
+            default: CESSATION_OF_OPERATION
+          example: "KEY_COMPROMISE"
+      responses:
+        '200':
+          description: Certificate successfully revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "OK"
+        '401':
+          description: Unauthorized - Invalid or missing API secret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error - EJBCA error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/crl:
+    get:
+      summary: Get Certificate Revocation List (CRL)
+      description: Retrieve the current Certificate Revocation List
+      operationId: getCRL
+      tags:
+        - CRL
+      security: []
+      responses:
+        '200':
+          description: CRL successfully retrieved
+          content:
+            application/pkix-crl:
+              schema:
+                type: string
+                format: binary
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: API secret key for authentication
+
+  schemas:
+    CertificateSigningRequest:
+      type: object
+      required:
+        - csr
+        - info
+      properties:
+        csr:
+          type: string
+          description: PEM-encoded Certificate Signing Request
+          example: |
+            -----BEGIN CERTIFICATE REQUEST-----
+            MIICvDCCAaQCAQAwdzELMAkGA1UEBhMCU0sxEDAOBgNVBAoMB2JBdmVuaXIxETAP
+            ...
+            -----END CERTIFICATE REQUEST-----
+        info:
+          type: object
+          description: Additional information about the certificate requester
+          properties:
+            nodeId:
+              type: string
+              description: Node identifier
+              example: "node-123"
+            orgId:
+              type: string
+              description: Organization identifier
+              example: "org-456"
+            role:
+              type: string
+              description: Role of the entity
+              example: "server"
+          additionalProperties: true
+
+    SignedCertificateResponse:
+      type: object
+      properties:
+        certificate:
+          type: string
+          description: PEM-encoded signed certificate
+          example: |
+            -----BEGIN CERTIFICATE-----
+            MIIDXTCCAkWgAwIBAgIJAKx...
+            -----END CERTIFICATE-----
+        certificate_chain:
+          type: array
+          items:
+            type: string
+          description: Certificate chain including intermediate and root certificates
+          example:
+            - |
+              -----BEGIN CERTIFICATE-----
+              MIIDXTCCAkWgAwIBAgIJAKx...
+              -----END CERTIFICATE-----
+            - |
+              -----BEGIN CERTIFICATE-----
+              MIIDXTCCAkWgAwIBAgIJAKx...
+              -----END CERTIFICATE-----
+        serial_number:
+          type: string
+          description: Serial number of the issued certificate
+          example: "1234567890ABCDEF"
+        response_format:
+          type: string
+          description: Format of the response
+          example: "PKCS7"
+
+    CertificateSearchResponse:
+      type: object
+      properties:
+        certificates:
+          type: array
+          items:
+            $ref: '#/components/schemas/CertificateInfo'
+        more_results:
+          type: boolean
+          description: Indicates if there are more results available
+          example: false
+
+    CertificateInfo:
+      type: object
+      properties:
+        fingerprint:
+          type: string
+          description: Certificate fingerprint
+          example: "A1:B2:C3:D4:E5:F6:..."
+        serial_number:
+          type: string
+          description: Certificate serial number
+          example: "1234567890ABCDEF"
+        certificate:
+          type: string
+          description: PEM-encoded certificate
+          example: |
+            -----BEGIN CERTIFICATE-----
+            MIIDXTCCAkWgAwIBAgIJAKx...
+            -----END CERTIFICATE-----
+        subject_dn:
+          type: string
+          description: Subject Distinguished Name
+          example: "CN=testnode,O=bAvenir,C=SK"
+        issuer_dn:
+          type: string
+          description: Issuer Distinguished Name
+          example: "CN=SpadeSubCA,O=bAvenir,C=SK"
+        not_before:
+          type: string
+          format: date-time
+          description: Certificate validity start date
+          example: "2024-01-01T00:00:00Z"
+        not_after:
+          type: string
+          format: date-time
+          description: Certificate validity end date
+          example: "2025-01-01T00:00:00Z"
+        status:
+          type: string
+          description: Certificate status
+          enum:
+            - CERT_ACTIVE
+            - CERT_REVOKED
+            - CERT_EXPIRED
+          example: "CERT_ACTIVE"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+          enum:
+            - UNKNOWN
+            - SERVER_ERROR
+            - BAD_PARAMS
+            - ROOT_CERT_PROBLEM
+            - AUTHORIZATION_ERROR
+            - CLIENT_CERT_PROBLEM
+            - NOT_IMPLEMENTED
+            - EJBCA_ERROR
+          example: "BAD_PARAMS"
+        message:
+          type: string
+          description: Error message
+          example: "CSR missing"
+        statusCode:
+          type: integer
+          description: HTTP status code
+          example: 400
+        logId:
+          type: string
+          description: Log identifier for tracking
+          example: "log-123456"
+          nullable: true
+        detail:
+          type: string
+          description: Additional error details
+          example: "The CSR field is required and must not be empty"
+          nullable: true
+
+tags:
+  - name: Certificates
+    description: Certificate management operations
+  - name: CRL
+    description: Certificate Revocation List operations
