@@ -96,138 +96,49 @@ Enterprise-grade open-source PKI solution for certificate issuance and managemen
 
 ## Deployment
 
-### 1. Initial Setup
+### 1. Clone Repository
 
 ```bash
-# Clone the repository
 git clone <repository-url>
 cd spade-cloud
-
-# Copy environment template
-cp .env.example .env
 ```
 
 ### 2. Configure Environment
 
-Edit `.env` and set:
-
 ```bash
-# Required for all services
-DATABROKER_DOMAIN=databroker.yourdomain.com
-ENTRYPOINT_DOMAIN=spade.yourdomain.com
-CATALOGUE_DOMAIN=catalogue.yourdomain.com
-KEYCLOAK_DOMAIN=auth.yourdomain.com
-
-# Docker images (use your registry)
-DATABROKER_UI_IMAGE=your-registry.com/databroker-ui:latest
-ENTRYPOINT_IMAGE=your-registry.com/spade-entrypoint:latest
-CATALOGUE_IMAGE=your-registry.com/spade-catalogue:latest
-
-# Database credentials (generate strong passwords)
-CATALOGUE_DB_USER=catalogue_admin
-CATALOGUE_DB_PASSWORD=<strong-password>
-CATALOGUE_DB_NAME=catalogue
-
-KEYCLOAK_DB_USER=keycloak_admin
-KEYCLOAK_DB_PASSWORD=<strong-password>
-KEYCLOAK_DB_NAME=keycloak
-
-KEYCLOAK_ADMIN_USER=admin
-KEYCLOAK_ADMIN_PASSWORD=<strong-admin-password>
-
-# PKI services (required)
-PKI_DOMAIN=pki.yourdomain.com
-PKI_IMAGE=your-registry.com/spade-pki:latest
-PKI_DATA_PATH=./pki/data
-
-EJBCA_DB_USER=ejbca_admin
-EJBCA_DB_PASSWORD=<strong-password>
-EJBCA_DB_ROOT_PASSWORD=<strong-root-password>
+cp .env.example .env
 ```
+
+Edit `.env` and configure:
+- Domain names for all services
+- Docker registry and image tags
+- Database credentials (use strong passwords)
+- PKI service settings
+- EJBCA database credentials
 
 ### 3. Configure PKI
 
-PKI services are required for SPADE platform operation. Configure the PKI service:
-
-```bash
-# Copy the example PKI configuration
-cp pki_data/config.json pki/data/config.json
-
-# Edit the configuration with your values
-nano pki/data/config.json
-```
-
-Update the following in `config.json`:
+Update `pki/data/config.json` with:
 - `ccHost`: Your catalogue domain
 - `issuerDN`: Your certificate authority distinguished name
 - `certificateProfileName`, `endEntityProfileName`, `certificateAuthorityName`: Match your EJBCA setup
 - `apiSecret`: Generate a secure base64-encoded secret
 - `keystorePassword`, `truststorePassword`: Set strong passwords
-- Ensure keystore files in PKCS#12 format (`superadmin.p12`, `truststore.p12`) are present in the PKI data directory
+- Place keystore files in PKCS#12 format (`superadmin.p12`, `truststore.p12`) in the PKI data directory
 
-### 4. Configure EJBCA Proxy (Optional)
+### 4. Initialize EJBCA
 
-The EJBCA proxy is optional and provides external HTTP/HTTPS access to EJBCA.
+EJBCA must be initialized and configured before starting SPADE services. Refer to the [EJBCA Installation Guide](https://doc.primekey.com/ejbca/ejbca-installation) for setup instructions.
 
-```bash
-mkdir -p ejbca/pem
-# Place your httpd.conf and SSL certificates in respective directories
-```
+### 5. Initialize and Configure Keycloak
 
-### 5. Start Services
+Configure Keycloak according to the [Keycloak Getting Started Guide](https://www.keycloak.org/getting-started). Set up realm, clients, and user federation as required for SPADE services.
 
-**Option A: Start all services**
+### 6. Start Services
+
 ```bash
 docker compose up -d
 ```
-
-**Option B: Start services incrementally (recommended for first deployment)**
-```bash
-# Start databases first
-docker compose up -d catalogue_db keycloak_db ejbca_db
-
-# Wait for databases to initialize (check with docker compose logs)
-docker compose logs -f catalogue_db keycloak_db ejbca_db
-
-# Start core SPADE services
-docker compose up -d catalogue entrypoint data-broker_ui
-
-# Start Keycloak
-docker compose up -d keycloak
-
-# Start PKI services (required)
-docker compose up -d ejbca pki
-```
-
-### 6. Verify Deployment
-
-```bash
-# Check service status
-docker compose ps
-
-# View logs
-docker compose logs -f
-
-# Test service access
-curl -k https://catalogue.yourdomain.com/health
-curl -k https://auth.yourdomain.com/health
-curl -k https://pki.yourdomain.com/health
-```
-
-### 7. Initial Configuration
-
-#### Keycloak Setup
-1. Access Keycloak admin console: `https://auth.yourdomain.com`
-2. Login with `KEYCLOAK_ADMIN_USER` / `KEYCLOAK_ADMIN_PASSWORD`
-3. Create realm for SPADE
-4. Configure clients for SPADE services
-5. See: [Keycloak Getting Started Guide](https://www.keycloak.org/getting-started)
-
-#### EJBCA Setup (if using)
-EJBCA setup and configuration is complex and requires extensive PKI knowledge. Refer to the [EJBCA Installation Guide](https://doc.primekey.com/ejbca/ejbca-installation) for detailed instructions.
-
-#### Catalogue Service
-The catalogue service will initialize its database schema automatically on first startup. No manual configuration required.
 
 ## Service Architecture
 
