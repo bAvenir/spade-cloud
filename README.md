@@ -45,6 +45,8 @@ Core data catalogue service managing metadata, schemas, and access policies for 
   - `DB_PASSWORD`: Database password
   - Additional variables in `.env` file
 - **Persistent Data**: Stored in `catalogue_db_data` volume
+- **API Documentation**: OpenAPI specification available in `openapi/swagger-catalogue.yaml`
+- **Database Setup**: Use `initdb.sh` script for additional database initialization if needed
 
 #### **PKI Service**
 SPADE-specific PKI management service that integrates with EJBCA to provide certificate lifecycle management for SPADE participants.
@@ -58,6 +60,7 @@ SPADE-specific PKI management service that integrates with EJBCA to provide cert
   - Define certificate profiles and policies
 - **Dependencies**: EJBCA must be running
 - **Volume**: `PKI_DATA_PATH` for persistent configuration
+- **API Documentation**: OpenAPI specification available in `openapi/swagger-pki.yaml`
 
 ### External Services
 
@@ -138,6 +141,14 @@ Configure Keycloak according to the [Keycloak Getting Started Guide](https://www
 
 ```bash
 docker compose up -d
+```
+
+### 7. Initialize Catalogue Database
+
+Run the database initialization script for the catalogue service:
+
+```bash
+./initdb.sh
 ```
 
 ## Service Architecture
