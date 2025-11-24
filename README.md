@@ -1,10 +1,14 @@
 # SPADE Cloud Platform
 
-A comprehensive docker-compose deployment configuration for the SPADE (Secure Platform for Advanced Data Exchange) Cloud platform. This platform provides a complete infrastructure for secure data collaboration, identity management, and PKI services.
+
+Docker Compose deployment configuration for the SPADE (Secure Platform for Advanced Data Exchange) Cloud platform. This platform provides a complete infrastructure for secure data collaboration, identity management, and PKI services.
 
 ## Overview
 
 SPADE Cloud is a modular platform consisting of core SPADE services and industry-standard external components for authentication and certificate management. All services are containerized and orchestrated using Docker Compose with Traefik as the reverse proxy.
+
+
+![SPADE Cloud Architecture](images/spade-cloud.png)
 
 ## Services
 
