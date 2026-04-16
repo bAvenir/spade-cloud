@@ -10,7 +10,7 @@ info:
     url: https://bavenir.eu
 
 servers:
-  - url: http://localhost:8080
+  - url: http://localhost:80
     description: Local development server
   - url: https://pki.spade.bavenir.eu
     description: Production server
@@ -66,7 +66,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Internal server error - EJBCA error
+          description: Internal server error
           content:
             application/json:
               schema:
@@ -185,7 +185,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Internal server error - EJBCA error
+          description: Internal server error
           content:
             application/json:
               schema:
@@ -353,7 +353,6 @@ components:
             - AUTHORIZATION_ERROR
             - CLIENT_CERT_PROBLEM
             - NOT_IMPLEMENTED
-            - EJBCA_ERROR
           example: "BAD_PARAMS"
         message:
           type: string

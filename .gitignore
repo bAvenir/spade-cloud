@@ -1,19 +1,14 @@
 # Environment variables - NEVER commit this file!
 .env
 
+# macOS
+.DS_Store
+
 # Docker volumes data
 volumes/
 
-# EJBCA configuration (may contain sensitive data)
-ejbca/pem/*.pem
-ejbca/pem/*.key
-ejbca/httpd.conf
-
-# PKI data (may contain sensitive data)
-pki/data/config.json
-pki/data/*.p12
-pki/data/*.pem
-pki/data/*.key
+# PKI certificates and database (sensitive)
+certs/
 
 # Keycloak themes (if customized locally)
 themes/

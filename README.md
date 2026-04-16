@@ -28,10 +28,6 @@ Main API gateway for the SPADE platform. Handles authentication, authorization, 
 - **Technology**: Node.js/Express
 - **Port**: 3000 (internal)
 - **Access**: Via Traefik at configured domain
-- **Environment Variables**:
-  - Database connection details
-  - Authentication settings
-  - Service endpoints
 - **Dependencies**: Requires Keycloak for authentication
 
 #### **Catalogue**
@@ -53,17 +49,14 @@ Core data catalogue service managing metadata, schemas, and access policies for 
 - **Database Setup**: Use `initdb.sh` script for additional database initialization if needed
 
 #### **PKI Service**
-SPADE-specific PKI management service that integrates with EJBCA to provide certificate lifecycle management for SPADE participants.
+Standalone certificate authority service providing full PKI lifecycle management for SPADE participants. Issues, stores, and revokes X.509 certificates using a custom Root CA and Subordinate CA.
 
-- **Technology**: Custom PKI management layer
-- **Port**: 8080 (internal)
+- **Technology**: Python/FastAPI
+- **Port**: 80 (internal)
 - **Access**: Via Traefik at configured domain
-- **Configuration**: 
-  - Requires `config.json` in `PKI_DATA_PATH`
-  - Configure EJBCA integration settings
-  - Define certificate profiles and policies
-- **Dependencies**: EJBCA must be running
-- **Volume**: `PKI_DATA_PATH` for persistent configuration
+- **Configuration**: All settings via `.env` (mounted into container)
+- **Certificate Storage**: SQLite database in `certs/` directory
+- **Prerequisites**: Run `generateCas.sh` before first start
 - **API Documentation**: OpenAPI specification available in `openapi/swagger-pki.yaml`
 
 ### External Services
@@ -78,22 +71,11 @@ Industry-standard open-source IAM solution providing authentication and authoriz
 - **Configuration**: Set database and admin credentials in `.env`
 - **Custom Themes**: Optional - uncomment volume mount in `docker-compose.yml`
 
-#### **EJBCA** (PKI Certificate Authority)
-Enterprise-grade open-source PKI solution for certificate issuance and management.
-
-- **Version**: Keyfactor EJBCA CE 9.1.1
-- **Database**: MariaDB (auto-initialized)
-- **Documentation**: [EJBCA Official Documentation](https://doc.primekey.com/ejbca)
-- **Proxy**: Optional Apache HTTP proxy for external access
-- **Configuration**: 
-  - Database credentials in `.env`
-  - For proxy: Provide `httpd.conf` and SSL certificates
-- **Note**: Can be commented out if not using PKI features
-
 ## Prerequisites
 
 - **Docker Engine** 20.10 or higher
 - **Docker Compose** v2.0 or higher
+- **OpenSSL** (for `generateCas.sh`)
 - **Traefik** reverse proxy running with:
   - SSL certificate resolver configured (named `myresolver`)
   - External network connectivity
@@ -120,34 +102,42 @@ Edit `.env` and configure:
 - Domain names for all services
 - Docker registry and image tags
 - Database credentials (use strong passwords)
-- PKI service settings
-- EJBCA database credentials
+- Keycloak admin credentials
+- PKI service settings (see step 3)
 
-### 3. Configure PKI
+### 3. Generate CA Certificates
 
-Update `pki/data/config.json` with:
-- `ccHost`: Your catalogue domain
-- `issuerDN`: Your certificate authority distinguished name
-- `certificateProfileName`, `endEntityProfileName`, `certificateAuthorityName`: Match your EJBCA setup
-- `apiSecret`: Generate a secure base64-encoded secret
-- `keystorePassword`, `truststorePassword`: Set strong passwords
-- Place keystore files in PKCS#12 format (`superadmin.p12`, `truststore.p12`) in the PKI data directory
+Run the CA generation script to create the Root CA and Subordinate CA:
 
-### 4. Initialize EJBCA
+```bash
+./generateCas.sh
+```
 
-EJBCA must be initialized and configured before starting SPADE services. Refer to the [EJBCA Installation Guide](https://doc.primekey.com/ejbca/ejbca-installation) for setup instructions.
+This creates `certs/rootCA.p12`, `certs/subCA.p12`, and `certs/passwords.txt`.
 
-### 5. Initialize and Configure Keycloak
+Copy the **SUB CA** password from `certs/passwords.txt` into `CA_SUBCA_KEY` in your `.env` file.
+
+Also update `CRL_URL` in `.env` to match your actual `PKI_DOMAIN`:
+```
+CRL_URL=https://pki.yourdomain.com/pki/certificates/revocation-list
+```
+
+After copying the password, delete `certs/passwords.txt`:
+```bash
+rm certs/passwords.txt
+```
+
+### 4. Initialize and Configure Keycloak
 
 Configure Keycloak according to the [Keycloak Getting Started Guide](https://www.keycloak.org/getting-started). Set up realm, clients, and user federation as required for SPADE services.
 
-### 6. Start Services
+### 5. Start Services
 
 ```bash
 docker compose up -d
 ```
 
-### 7. Initialize Catalogue Database
+### 6. Initialize Catalogue Database
 
 Run the database initialization script for the catalogue service:
 
@@ -166,7 +156,7 @@ Traefik (SSL/TLS Termination & Routing)
    ├─→ Entrypoint (API Gateway)
    ├─→ Catalogue (Core Service) ─→ PostgreSQL
    ├─→ Keycloak (IAM) ─→ PostgreSQL
-   └─→ PKI Service ─→ EJBCA ─→ MariaDB
+   └─→ PKI Service (CA) ─→ certs/ (SQLite + PKCS#12)
 ```
 
 All services communicate via the internal `spade_network` Docker bridge network.
@@ -204,9 +194,7 @@ This project (SPADE Cloud Platform) is licensed under the [Apache License 2.0](h
 ### Third-Party Components
 
 - **Keycloak**: Licensed under [Apache License 2.0](https://github.com/keycloak/keycloak/blob/main/LICENSE.txt)
-- **EJBCA**: Licensed under [LGPL v2.1](https://www.primekey.com/products/software-licensing/)
 - **PostgreSQL**: Licensed under [PostgreSQL License](https://www.postgresql.org/about/licence/) (permissive open-source license)
-- **MariaDB**: Licensed under [GPL v2](https://mariadb.com/kb/en/mariadb-license/)
 - **Traefik**: Licensed under [MIT License](https://github.com/traefik/traefik/blob/master/LICENSE.md)
 
 ## Support
@@ -214,5 +202,4 @@ This project (SPADE Cloud Platform) is licensed under the [Apache License 2.0](h
 For issues specific to:
 - **SPADE services**: Contact bAvenir support at [support@bavenir.com](mailto:support@bavenir.com)
 - **Keycloak**: See [Keycloak Community](https://www.keycloak.org/community)
-- **EJBCA**: See [EJBCA Support](https://www.primekey.com/support/)
 - **Docker/Infrastructure**: Check Docker and Traefik documentation

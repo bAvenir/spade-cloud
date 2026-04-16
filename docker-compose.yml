@@ -146,88 +146,20 @@ services:
       - spade_network
 
   # ===========================================
-  # EJBCA DATABASE - MariaDB
+  # PKI SERVICE - Standalone Certificate Authority
   # ===========================================
-  ejbca_db:
-    image: library/mariadb
-    restart: always
-    command: --character-set-server=utf8 --collation-server=utf8_bin
-    environment:
-      MYSQL_ROOT_PASSWORD: ${EJBCA_DB_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${EJBCA_DB_NAME}
-      MYSQL_USER: ${EJBCA_DB_USER}
-      MYSQL_PASSWORD: ${EJBCA_DB_PASSWORD}
-    volumes:
-      - ejbca_db_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    labels:
-      - traefik.enable=false
-    networks:
-      - spade_network
-
-  # ===========================================
-  # EJBCA - PKI Certificate Authority
-  # ===========================================
-  ejbca:
-    container_name: ejbca
-    image: keyfactor/ejbca-ce:9.1.1
-    restart: always
-    hostname: ${EJBCA_HOSTNAME}
-    depends_on:
-      ejbca_db:
-        condition: service_healthy
-    environment:
-      DATABASE_JDBC_URL: jdbc:mysql://ejbca_db:3306/${EJBCA_DB_NAME}?characterEncoding=UTF-8
-      DATABASE_USER: ${EJBCA_DB_USER}
-      DATABASE_PASSWORD: ${EJBCA_DB_PASSWORD}
-      PROXY_AJP_BIND: 0.0.0.0
-    labels:
-      - traefik.enable=false
-    networks:
-      - spade_network
-
-  # ===========================================
-  # EJBCA PROXY - Apache HTTP Server
-  # ===========================================
-  # NOTE: Requires httpd.conf and SSL certificates before starting
-  # Comment out this service if not using EJBCA proxy
-  ejbca_proxy:
-    image: library/httpd:2.4
-    hostname: ${EJBCA_PROXY_HOSTNAME}
-    restart: always
-    depends_on:
-      - ejbca
-    ports:
-      - "${EJBCA_HTTP_PORT}:80"
-      - "${EJBCA_HTTPS_PORT}:443"
-    volumes:
-      - ${EJBCA_HTTPD_CONF}:/usr/local/apache2/conf/httpd.conf
-      - ${EJBCA_PEM_PATH}:/etc/httpd/ssl
-    labels:
-      - traefik.enable=false
-    networks:
-      - spade_network
-
-  # ===========================================
-  # PKI SERVICE - SPADE PKI Management
-  # ===========================================
-  # NOTE: Requires config.json in PKI_DATA_PATH before starting
+  # Prerequisites: run generateCas.sh to create certs/ before first start
   pki:
-    image: ${PKI_IMAGE}
-    restart: always
-    depends_on:
-      - ejbca
-    volumes:
-      - ${PKI_DATA_PATH}:/data:rw
+    image: reg.bavenir.eu/private/circpki:spade
+    restart: unless-stopped
     environment:
-      CONFIG_FILE: /data/config.json
+      - TZ=Europe/Bratislava
+    volumes:
+      - .env:/pki/.env
+      - ./certs:/pki/certs
     labels:
       - traefik.enable=true
-      - traefik.http.services.pki.loadbalancer.server.port=8080
+      - traefik.http.services.pki.loadbalancer.server.port=80
       - traefik.http.routers.pki.rule=Host(`${PKI_DOMAIN}`)
       - traefik.http.routers.pki.entrypoints=websecure,web
       - traefik.http.routers.pki.tls.certresolver=myresolver
@@ -242,8 +174,6 @@ volumes:
     driver: local
   keycloak_db_data:
     driver: local
-  ejbca_db_data:
-    driver: local
 
 # ===========================================
 # NETWORKS
@@ -251,4 +181,3 @@ volumes:
 networks:
   spade_network:
     driver: bridge
-
